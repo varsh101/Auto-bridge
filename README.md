@@ -68,21 +68,20 @@ for 1 account:
      
 for multi accounts:
 
-        private_keys = [
-    "0xYourPrivateKey1",
-    "0xYourPrivateKey2"
-        ]
+         private_keys = [
+     '0xYourPrivateKey1',
+     '0xYourPrivateKey2'
+         ]
 
-        my_addresses = [
-    "0xYourAddress1",
-    "0xYourAddress2"
-        ]
+         my_addresses = [
+     '0xYourAddress1',
+     '0xYourAddress2'
+         ]
 
-        labels = [
-    "Account 1",
-    "Account 2"
-        ]
-
+         labels = [
+     'Account 1',
+     'Account 2'
+         ]
 ### exit using command:  control + x and then enter
 
 
