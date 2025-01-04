@@ -3,6 +3,32 @@
 -A bot designed to automate transactions and bridge assets on the t3rn network, making the process seamless and efficient.
 Now supports both Base Sepolia, Optimism Sepolia and Arbitrum Sepolia testnets.
 
+## Updated
+
+### Transaction Handling Improvements
+- Enhanced to complete all transactions for a single chain before switching
+- Added transaction counter display (e.g., "TX 1/5" or "TX 1/∞")
+- Implemented configurable pause between individual transactions
+- Fixed chain switching pause timing
+
+### New Features
+- Added flexibility to specify:
+  - Number of transactions per chain (finite or infinite)
+  - Pause time between transactions
+  - Waiting period between chain switches
+  - Total number of complete loops
+
+### Workflow Enhancements
+- More granular transaction tracking
+- Improved user feedback during bridging process
+- Flexible transaction and loop configuration
+
+### Edit the data_bridge.py
+edit the input Hast in that file into your input data 
+You can get it by swapping manually as shown in below SS
+![image](https://github.com/user-attachments/assets/3101b27e-9e67-4d4e-acec-201434461ad1)
+
+----------------------------------------------------------------------------------------------
 ## Features :
 
 - Automates asset bridging and swapping on the t3rn network.
