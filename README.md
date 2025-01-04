@@ -56,7 +56,7 @@ Before running the script, make sure you have installed and configured:
 1. Clone this repository:     
 
           git clone https://github.com/adityapatil343/t3rn-auto-bridge
-          cd t3rn-auto-bridge
+          cd Auto-bridge
 2. Install python3:
 
           sudo apt update && sudo apt install -y python3
