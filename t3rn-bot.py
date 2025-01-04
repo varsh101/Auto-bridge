@@ -22,23 +22,19 @@ ascii_art = """
 
 \033[38;5;214m
 
-  K   K  OOO  N   N TTTTT L       III  JJJ   OOO
-  K  K  O   O NN  N   T   L        I    J   O   O
-  KKK   O   O N N N   T   L        I    J   O   O
-  K  K  O   O N  NN   T   L        I    J   O   O
-  K   K  OOO  N   N   T   LLLLL   III  JJJ   OOO
+  T3RN  AUTO  BRIDGE  BOT
+  =====================
+  Optimized for OP-Base
 
 \033[0m
 """
 
 description = """
-Bot Auto Bridge  https://bridge.t1rn.io/
+Automated Bridge Bot for https://bridge.t1rn.io/
 """
 
 chain_symbols = {
-    'Arbitrum Sepolia': '\033[34m',
     'OP Sepolia': '\033[91m',
-    'Blast Sepolia': '\033[93m',
     'Base Sepolia': '\033[96m'
 }
 
@@ -47,9 +43,7 @@ reset_color = '\033[0m'
 menu_color = '\033[95m'
 
 explorer_urls = {
-    'Arbitrum Sepolia': 'https://sepolia.arbiscan.io/tx/',
     'OP Sepolia': 'https://sepolia-optimism.etherscan.io/tx/',
-    'Blast Sepolia': 'https://testnet.blastscan.io/tx/',
     'Base Sepolia': 'https://sepolia.basescan.org/tx/',
     'BRN': 'https://brn.explorer.caldera.xyz/tx/'
 }
@@ -72,11 +66,11 @@ def send_bridge_transaction(web3, account, my_address, data, network_name):
         })
         gas_limit = gas_estimate + 1
     except Exception as e:
-        print(f"Error estimating gas: {e}")
+        print(f"\n{chain_symbols[network_name]}❌ Error estimating gas: {e}{reset_color}")
         return None
 
     base_fee = web3.eth.get_block('latest')['baseFeePerGas']
-    priority_fee = web3.to_wei(1, 'gwei')
+    priority_fee = web3.to_wei(1, 'gwei')  
     max_fee = base_fee + priority_fee
 
     transaction = {
@@ -93,7 +87,7 @@ def send_bridge_transaction(web3, account, my_address, data, network_name):
     try:
         signed_txn = web3.eth.account.sign_transaction(transaction, account.key)
     except Exception as e:
-        print(f"Error signing transaction: {e}")
+        print(f"\n{chain_symbols[network_name]}❌ Error signing transaction: {e}{reset_color}")
         return None
 
     try:
@@ -103,58 +97,86 @@ def send_bridge_transaction(web3, account, my_address, data, network_name):
         balance = web3.eth.get_balance(my_address)
         formatted_balance = web3.from_wei(balance, 'ether')
 
-        brn_balance = get_brn_balance(Web3(Web3.HTTPProvider('https://brn.rpc.caldera.xyz/http')), my_address)
+        brn_web3 = Web3(Web3.HTTPProvider('https://brn.rpc.caldera.xyz/http'))
+        brn_balance = get_brn_balance(brn_web3, my_address)
 
         explorer_link = f"{explorer_urls[network_name]}{web3.to_hex(tx_hash)}"
 
-        print(f"{green_color} Alamat Pengirim: {account.address}")
-        print(f"⛽ Gas digunakan: {tx_receipt['gasUsed']}")
-        print(f"️  Nomor blok: {tx_receipt['blockNumber']}")
-        print(f" Saldo ETH: {formatted_balance} ETH")
-        print(f" Saldo BRN: {brn_balance} BRN")
-        print(f" Link Explorer: {explorer_link}\n{reset_color}")
+        print(f"\n{chain_symbols[network_name]}Transaction Details:")
+        print(f"📍 From: {account.address}")
+        print(f"💰 Amount Bridged: {value_in_ether} ETH")
+        print(f"⛽ Gas Used: {tx_receipt['gasUsed']}")
+        print(f"🔢 Block Number: {tx_receipt['blockNumber']}")
+        print(f"💳 Remaining Balance: {formatted_balance:.6f} ETH")
+        print(f"🪙 BRN Balance: {brn_balance:.6f} BRN")
+        print(f"🔍 Explorer: {explorer_link}{reset_color}")
 
         return web3.to_hex(tx_hash), value_in_ether
     except Exception as e:
-        print(f"Error sending transaction: {e}")
+        print(f"\n{chain_symbols[network_name]}❌ Error sending transaction: {e}{reset_color}")
         return None, None
 
-def process_network_transactions(network_name, bridges, chain_data, successful_txs):
+def process_network_transactions(network_name, bridges, chain_data, successful_txs, max_txs, current_tx, tx_pause):
     web3 = Web3(Web3.HTTPProvider(chain_data['rpc_url']))
     if not web3.is_connected():
-        raise Exception(f"Tidak dapat terhubung ke jaringan {network_name}")
+        raise Exception(f"Cannot connect to network {network_name}")
 
-    for bridge in bridges:
-        for i, private_key in enumerate(private_keys):
-            account = Account.from_key(private_key)
-            data = data_bridge[bridge]
-            result = send_bridge_transaction(web3, account, my_addresses[i], data, network_name)
-            if result:
-                tx_hash, value_sent = result
-                successful_txs += 1
+    for tx_num in range(int(max_txs) if max_txs != 'infinite' else float('inf')):
+        if max_txs != 'infinite' and current_tx >= int(max_txs):
+            return successful_txs, current_tx
+            
+        for bridge in bridges:
+            for i, private_key in enumerate(private_keys):
+                account = Account.from_key(private_key)
+                data = data_bridge[bridge]
+                result = send_bridge_transaction(web3, account, my_addresses[i], data, network_name)
+                if result:
+                    tx_hash, value_sent = result
+                    successful_txs += 1
+                    current_tx += 1
+                    if value_sent is not None:
+                        print(f"\n{chain_symbols[network_name]}✅ Bridge #{successful_txs} | {labels[i]} | {bridge} | Amount: {value_sent:.5f} ETH | TX {current_tx}/{max_txs if max_txs != 'infinite' else '∞'}{reset_color}")
+                    else:
+                        print(f"\n{chain_symbols[network_name]}✅ Bridge #{successful_txs} | {labels[i]} | {bridge} | TX {current_tx}/{max_txs if max_txs != 'infinite' else '∞'}{reset_color}")
+                    print(f"\n{'='*100}\n")
+                
+                if tx_num < int(max_txs)-1 if max_txs != 'infinite' else True:
+                    print(f"\n⏳ Waiting {tx_pause} seconds before next transaction...")
+                    time.sleep(tx_pause)
 
-                if value_sent is not None:
-                    print(f"{chain_symbols[network_name]} Total Tx Sukses: {successful_txs} | {labels[i]} | Bridge: {bridge} | Jumlah Bridge: {value_sent:.5f} ETH ✅{reset_color}\n")
-                else:
-                    print(f"{chain_symbols[network_name]} Total Tx Sukses: {successful_txs} | {labels[i]} | Bridge: {bridge} ✅{reset_color}\n")
-
-                print(f"{'='*150}")
-                print("\n")
-            time.sleep(3)
-
-    return successful_txs
+    return successful_txs, current_tx
 
 def display_menu():
-    print(f"{menu_color}Pilih chain untuk menjalankan transaksi:{reset_color}")
+    print(f"{menu_color}Configure Bridge Parameters:{reset_color}")
     print("")
-    print(f"{chain_symbols['OP Sepolia']}1. OP -> BASE Sepolia{reset_color}")
-    print(f"{chain_symbols['Base Sepolia']}2. BASE -> OP Sepolia{reset_color}")
-    print(f"{chain_symbols['Arbitrum Sepolia']}3. BASE -> Arbitrum Sepolia{reset_color}")
-    print(f"{chain_symbols['Arbitrum Sepolia']}4. Arbitrum -> BASE Sepolia{reset_color}")
-    print(f"{menu_color}5. Run all transactions repeatedly..recommended.. {reset_color}")
-    print("")
-    choice = input("choose (1-5): ")
-    return choice
+    
+    while True:
+        txs_per_chain = input("Number of transactions per chain (number or 'infinite'): ").strip()
+        if txs_per_chain.lower() == 'infinite' or txs_per_chain.isdigit():
+            break
+        print("Please enter a number or 'infinite'")
+    
+    while True:
+        try:
+            tx_pause = int(input("Pause time between transactions (seconds): "))
+            break
+        except ValueError:
+            print("Please enter a valid number")
+    
+    while True:
+        try:
+            chain_pause = int(input("Pause time between chain switches (seconds): "))
+            break
+        except ValueError:
+            print("Please enter a valid number")
+    
+    while True:
+        loops = input("Number of complete loops (number or 'infinite'): ").strip()
+        if loops.lower() == 'infinite' or loops.isdigit():
+            break
+        print("Please enter a number or 'infinite'")
+    
+    return txs_per_chain, tx_pause, chain_pause, loops
 
 def main():
     print("\033[92m" + center_text(ascii_art) + "\033[0m")
@@ -162,66 +184,51 @@ def main():
     print("\n\n")
 
     successful_txs = 0
+    current_loop = 1
 
     while True:
-        choice = display_menu()
+        txs_per_chain, tx_pause, chain_pause, total_loops = display_menu()
         clear_terminal()
         print("\033[92m" + center_text(ascii_art) + "\033[0m")
         print(center_text(description))
         print("\n\n")
 
         try:
-            if choice == '1':
-                print(f"{menu_color}Jalankan transaksi OP -> BASE Sepolia secara terus-menerus...{reset_color}")
-                while True:
-                    successful_txs = process_network_transactions('OP Sepolia', ["OP - BASE"], networks['OP Sepolia'], successful_txs)
-                    print("Wait 10 Second for Safety (OP -> BASE)...")
-                    time.sleep(10)
-
-            elif choice == '2':
-                print(f"{menu_color}Jalankan transaksi BASE -> OP Sepolia secara terus-menerus...{reset_color}")
-                while True:
-                    successful_txs = process_network_transactions('Base Sepolia', ["BASE - OP"], networks['Base Sepolia'], successful_txs)
-                    print("Wait 10 Second for Safety (BASE -> OP)...")
-                    time.sleep(10)
-
-            elif choice == '3':
-                print(f"{menu_color}Jalankan transaksi BASE -> Arbitrum Sepolia secara terus-menerus...{reset_color}")
-                while True:
-                    successful_txs = process_network_transactions('Base Sepolia', ["BASE - Arbitrum"], networks['Base Sepolia'], successful_txs)
-                    print("Wait 10 Second for Safety (BASE -> Arbitrum)...")
-                    time.sleep(10)
-
-            elif choice == '4':
-                print(f"{menu_color}Jalankan transaksi Arbitrum -> BASE Sepolia secara terus-menerus...{reset_color}")
-                while True:
-                    successful_txs = process_network_transactions('Arbitrum Sepolia', ["Arbitrum - BASE"], networks['Arbitrum Sepolia'], successful_txs)
-                    print("Wait 10 Second for Safety (Arbitrum -> BASE)...")
-                    time.sleep(10)
-
-            elif choice == '5':
-                print(f"{menu_color}Jalankan transaksi secara terus-menerus dari OP -> BASE, BASE -> OP, BASE -> Arbitrum, Arbitrum -> BASE{reset_color}")
-                while True:
-                    successful_txs = process_network_transactions('OP Sepolia', ["OP - BASE"], networks['OP Sepolia'], successful_txs)
-                    print("Wait 10 Second for Safety (OP -> BASE)...")
-                    time.sleep(10)
-
-                    successful_txs = process_network_transactions('Base Sepolia', ["BASE - OP"], networks['Base Sepolia'], successful_txs)
-                    print("Wait 10 Second for Safety (BASE -> OP)...")
-                    time.sleep(10)
-
-                    successful_txs = process_network_transactions('Base Sepolia', ["BASE - Arbitrum"], networks['Base Sepolia'], successful_txs)
-                    print("Wait 10 Second for Safety (BASE -> Arbitrum)...")
-                    time.sleep(10)
-
-                    successful_txs = process_network_transactions('Arbitrum Sepolia', ["Arbitrum - BASE"], networks['Arbitrum Sepolia'], successful_txs)
-                    print("Wait 10 Second for Safety (Arbitrum -> BASE)...")
-                    time.sleep(10)
-
+            while True:
+                if total_loops != 'infinite' and current_loop > int(total_loops):
+                    break
+                    
+                print(f"{menu_color}🔄 Loop {current_loop}" + (f"/{total_loops}" if total_loops != 'infinite' else '') + f"{reset_color}")
+                
+                # OP -> BASE
+                print(f"\n{menu_color}🔄 Running OP -> BASE transactions...{reset_color}")
+                current_tx = 0
+                successful_txs, current_tx = process_network_transactions('OP Sepolia', ["OP - BASE"], networks['OP Sepolia'], successful_txs, txs_per_chain, current_tx, tx_pause)
+                
+                print(f"\n⏳ Waiting {chain_pause} seconds before switching chains...")
+                time.sleep(chain_pause)
+                
+                # BASE -> OP
+                print(f"\n{menu_color}🔄 Running BASE -> OP transactions...{reset_color}")
+                current_tx = 0
+                successful_txs, current_tx = process_network_transactions('Base Sepolia', ["BASE - OP"], networks['Base Sepolia'], successful_txs, txs_per_chain, current_tx, tx_pause)
+                
+                if total_loops == 'infinite' or current_loop < int(total_loops):
+                    print(f"\n⏳ Waiting {chain_pause} seconds before next loop...")
+                    time.sleep(chain_pause)
+                
+                current_loop += 1
+                
+            print(f"\n{green_color}✨ All loops completed! Total successful transactions: {successful_txs}{reset_color}")
+            break
+            
+        except KeyboardInterrupt:
+            print("\n👋 Exiting...")
+            break
         except Exception as e:
-            print(f"Terjadi kesalahan: {e}")
-            print("Wait 10 Second for Safety...")
-            time.sleep(10)
+            print(f"\n❌ Error: {e}")
+            time.sleep(3)
+            continue
 
 if __name__ == "__main__":
     main()
